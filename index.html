@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sago Token Wallet</title>
     <link rel="stylesheet" href="index.css" />
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/web3@1.3.6/dist/web3.min.js"></script>
 </head>
+
 <body>
     <header>
         <h1>Sago Token Wallet</h1>
@@ -13,21 +17,23 @@
 
     <div class="container">
         <div class="balance">
-            <p>Available tokens for purchase:<b>100</b></p>
-            <p>Tokens in your wallet:<b>0</b></p>
+            <h2>1 Sago Token = 0.001 Ether</h2>
+            <p>Available tokens for purchase: <b id="availableTokens">100</b></p>
+            <p>Tokens in your wallet: <b id="walletTokens">0</b></p>
         </div>
         <div class="transaction-section">
             <div>
-                <input type="number" placeholder="Enter buy count" id="txtBuyCount"/>
-                <input type="button" value="Buy" id="btnBuy" />
+                <input type="number" placeholder="Enter buy count" id="txtBuyCount" />
+                <input type="button" value="Buy" id="btnBuy" onclick="BuyToken()" />
             </div>
             <div>
-                <input type="number" placeholder="Enter sell count" id="txtSellCount"/>
-                <input type="button" value="Sell" id="btnSell" />
+                <input type="number" placeholder="Enter sell count" id="txtSellCount" />
+                <input type="button" value="Sell" id="btnSell" onclick="SellToken()" />
             </div>
             <div>
-                <input type="text" placeholder="Enter transfer address" id="txtAddress"/>
-                <input type="button" value="Transfer" id="btnTransfer" />
+                <input type="text" placeholder="Enter transfer address" id="txtAddress" />
+                <input type="number" placeholder="Enter transfer count" id="txtTransferCount" />
+                <input type="button" value="Transfer" id="btnTransfer" onclick="TransferTokens()" />
             </div>
         </div>
     </div>
@@ -35,5 +41,97 @@
     <footer>
         <p>&copy; 2024 Sago Token. All rights reserved.</p>
     </footer>
+
+    <script>
+        var contract, accounts;
+
+        $(document).ready(async function () {
+            if (typeof window.ethereum !== 'undefined') {
+                window.web3 = new Web3(window.ethereum);
+                window.ethereum.enable();
+                accounts = await new Web3(Web3.givenProvider).eth.requestAccounts();
+            } else {
+                console.error('No Ethereum provider detected. Install MetaMask or use a provider with window.ethereum.');
+            }
+            $.getJSON('ABI.json', function (data) {
+                var contractABI = data;
+                var contractAddress = "0xE518d07e72e33C8Ee76aa5DbEcb2EE90C91f4514";
+                contract = new web3.eth.Contract(contractABI, contractAddress);
+                updateBalances();
+            });
+        });
+
+        function updateBalances() {
+            $('#txtBuyCount').val('');
+            $('#txtSellCount').val('');
+            $('#txtAddress').val('');
+            $('#txtTransferCount').val('');
+            contract.methods.balanceTokensCount().call()
+                .then(function (balanceTokens) {
+                    $('#availableTokens').text(balanceTokens);
+                })
+                .catch(function (error) {
+                    console.error("Error fetching balanceTokensCount:", error);
+                });
+
+            contract.methods.walletBalance(accounts[0]).call()
+                .then(function (walletBalance) {
+                    $('#walletTokens').text(walletBalance);
+                })
+                .catch(function (error) {
+                    console.error("Error fetching walletBalance:", error);
+                });
+        }
+
+        function TransferTokens() {
+            var toAddress = $('#txtAddress').val();
+            var tokenCount = $('#txtTransferCount').val();
+
+            contract.methods.transferTokens(toAddress, tokenCount).send({ from: accounts[0] })
+                .then(function (result) {
+                    alert("Transfered successfully");
+                    //console.log("Transfer successful:", result);
+                    updateBalances();
+                })
+                .catch(function (error) {
+                    console.error("Error transferring tokens:", error);
+                });
+        }
+
+        function BuyToken() {
+            var buyCount = $('#txtBuyCount').val();
+
+            contract.methods.buyTokens(buyCount).send({
+                from: accounts[0],
+                value: buyCount * 0.001 * 1e18,
+            })
+                .then(function (result) {
+                    alert("Buyed successfully");
+                    //console.log("Buy successful:", result);
+                    updateBalances();
+                })
+                .catch(function (error) {
+                    console.error("Error buying tokens:", error);
+                });
+        }
+
+        function SellToken() {
+            var sellCount = $('#txtSellCount').val();
+
+            contract.methods.sellTokens(sellCount).send({
+                from: accounts[0],
+            })
+                .then(function (result) {
+                    alert("Selled successfully");
+                    //console.log("Sell successful:", result);
+                    updateBalances();
+                })
+                .catch(function (error) {
+                    console.error("Error selling tokens:", error);
+                });
+        }
+    </script>
+
 </body>
+
 </html>
